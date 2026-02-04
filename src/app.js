@@ -1,31 +1,53 @@
 const express = require("express");
-const fs = require('fs');
+const connectDB = require("./config/db.config");
+const Quotes = require("./models/quotes.model");
+
 const app = express();
+connectDB();
+
 app.use(express.json());
 
-const quotes = JSON.parse(fs.readFileSync('./src/data.json', 'utf-8'));
-
 app.get("/", (req, res) => {
-  res.send("Hello, user");
+  res.send("Hello, user go to /quote to get a random quote");
 });
 
-app.get("/quote", (req, res) => {
-  const randomIndex = Math.floor(Math.random() * quotes.length);
-  const randomQuote = quotes[randomIndex];
-   res.status(200).json({
-    message: "Quote retrieved successfully!",
-    data: randomQuote
-  });
+app.get("/quote", async (req, res) => {
+  try {
+    const randomQuote = await Quotes.aggregate([{ $sample: { size: 1 } }]);
+    if (!randomQuote) {
+      return res.status(404).json({ message: "No quotes found" });
+    }
+    res.status(200).json({
+      message: "Quote retrieved successfully!",
+      data: {
+        Quote: randomQuote[0].quote,
+        author: randomQuote[0].author,
+      },
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Error retrieving quote", error: err.message });
+  }
 });
 
-app.post("/quote", (req, res) => {
-  const data = req.body;
-  quotes.push(data);
-   fs.writeFileSync('./data.json', JSON.stringify(quotes, null, 2));
-  res.status(201).json({
-    message: "Quote revived successfully!",
-    data: data,
-  });
+app.post("/quote", async (req, res) => {
+  try {
+    const data = req.body;
+    const newQuote = await Quotes.create({
+      quote: data.quote,
+      author: data.author,
+    });
+
+    res.status(201).json({
+      message: "Quote created successfully!",
+      data: newQuote,
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Error creating quote", error: err.message });
+  }
 });
 
 module.exports = app;
