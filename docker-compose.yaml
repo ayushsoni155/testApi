@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mongo:latest
+    container_name: mongo_db
+    restart: always
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - mongo_to_express
+
+  testapi:
+    build: .
+    container_name: testapi
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      MONGO_URI: "mongodb://db:27017/testLocal"
+    networks:
+      - mongo_to_express
+
+volumes:
+  mongodb-data:
+    name: mongodb-data
+
+networks:
+  mongo_to_express:
+    driver: bridge
